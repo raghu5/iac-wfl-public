@@ -1,0 +1,52 @@
+name: Cloud Security IaC Scan
+on:
+  workflow_call:
+    inputs:
+      project_key:
+        required: true
+        type: string
+      path:
+        required: true
+        type: string
+
+  workflow_dispatch:
+
+jobs:
+  IaC-Scan:
+    name: IaC Scan - Orca
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Run Orca IaC Scan
+        uses: orcasecurity/shiftleft-iac-action@v1
+        id: orca_scan
+        with:
+          api_token: ${{ secrets.ORCA_SECURITY_API_TOKEN_REPO }}
+          project_key: ${{ inputs.project_key }}
+          path: ${{ inputs.path }}
+          format: "cli,json,sarif"
+          output: "results/"
+          
+      - name: Upload SARIF file on push if scan failed
+        uses: github/codeql-action/upload-sarif@v2
+        if: failure() && github.event_name == 'push'
+        with:
+          sarif_file: results/iac.sarif
+
+      - name: Add Comment if scan failed
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const message = "Required Infrastructure as Code (IaC) checks have **FAILED**. Please address these concerns. All checks will automatically re-run as the PR is updated. Please contact @cloudsecurity in the [#informationsecurity](https://tempuslabs-global.slack.com/archives/C60J4K8FR) Slack channel with any concerns, or if an exemption review is required. Admin merges/forced merges against policy will automatically generate requests for a required written explanation.";
+            const payload = {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: message
+            };
+            const response = await github.rest.issues.createComment(payload);
+            console.log(response.data);
