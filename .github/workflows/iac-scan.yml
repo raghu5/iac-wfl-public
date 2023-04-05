@@ -26,8 +26,8 @@ jobs:
           api_token: ${{ secrets.ORCA_SECURITY_API_TOKEN_REPO }}
           project_key: ${{ inputs.project_key }}
           path: ${{ inputs.path }}
-          format: cli,json,sarif
-          output: "results/"
+          #format: cli,json,sarif
+          #output: "results/"
           
       - name: Upload SARIF file on push if scan failed
         uses: github/codeql-action/upload-sarif@v2
